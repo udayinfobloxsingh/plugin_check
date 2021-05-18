@@ -1,13 +1,19 @@
 package dummy
 
 import (
-	"context"
 	"fmt"
 
 	//	"coredns_wrapper/coredns/plugin"
 
+	dnspb "dns_resolver_dummy/dnspb"
+	"log"
+
+	//log "github.com/coredns/coredns/plugin/pkg/log"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/miekg/dns"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 type dummyPlugin struct {
@@ -31,24 +37,43 @@ func (p *dummyPlugin) Name() string {
 // ServeDNS implements the Handler interface
 func (p *dummyPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	fmt.Println("in serveDNS call")
-	/*
-		if qName, ok := checkQuery(r); ok {
-			// Parse the domain and access code
-			domainName, accessCode, err := parseQuery(qName, p.nonce, p.pass)
-			if err != nil {
-				// Cannot parse domain and access code
-				// forge access code to get redirection to error server
-				log.Warningf("Failed to decode: qName=%q, error=%q", qName, err)
-				accessCode = fakeAccessCode
-			}
-			addEdnsOption(r, ednsQueryName, []byte(domainName))
-			addEdnsOption(r, ednsAccessCode, []byte(accessCode))
+	var conn *grpc.ClientConn
 
-			ts := time.Now().Unix()
-			tsBuf := make([]byte, 8)
-			binary.BigEndian.PutUint64(tsBuf, uint64(ts))
-			addEdnsOption(r, ednsTimeStamp, tsBuf)
-		}
+	conn, err := grpc.Dial(":50551", grpc.WithInsecure())
+
+	if err != nil {
+		log.Fatalf("did not connect: %s", err)
+	}
+
+	defer conn.Close()
+
+	c := dnspb.NewDnsServiceClient(conn)
+	domainName := parseQuery(r)
+
+	if !(DNSauthenticate(domainName[:len(domainName)-1], c)) {
+		return dns.RcodeRefused, nil
+	}
+	/*		DNSauthenticate("yahoo.com", c)
+			DNSauthenticate("flipkart.com", c)
+			DNSauthenticate("facebook.com", c)
+			DNSauthenticate("infoblox.com", c)
+			DNSauthenticate("twitter.com", c)
+			DNSauthenticate("music.com", c)
 	*/
+	//	log.Println("END OF PROGRAM")
+
 	return p.next.ServeDNS(ctx, w, r)
+}
+
+func DNSauthenticate(domainname string, c dnspb.DnsServiceClient) bool {
+	response, err := c.DNSauthenticate(context.Background(), &dnspb.DomainReq{DomainName: domainname})
+	if err != nil {
+		log.Fatalf("Error when calling Server: %s", err)
+	}
+	log.Printf("Response from server %s for domain: %s", response.Action.String(), domainname)
+	if response.Action.String() == "ALLOW" {
+		return true
+	}
+	return false
+
 }

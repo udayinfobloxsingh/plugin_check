@@ -45,11 +45,11 @@ var directives = []string{
 	"redirect",
 	"policy",
 	"cache",
+	"dummy",
 	"forward",
 	"erratic",
 	"whoami",
 	"on",
-	"dummy",
 }
 
 func init() {

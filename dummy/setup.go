@@ -9,7 +9,7 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 )
 
-var log = clog.NewWithPlugin("dummy")
+var vlog = clog.NewWithPlugin("dummy")
 
 func init() {
 	fmt.Println("init called in dummy")
@@ -40,14 +40,8 @@ func dummyParse(c *caddy.Controller) (*dummyPlugin, error) {
 
 	for c.Next() {
 		remainingArgs := c.RemainingArgs()
-		if len(remainingArgs) > 2 {
-			return nil, c.Err("too many arguments")
-		}
 		if len(remainingArgs) > 0 {
-			ap.pass = remainingArgs[0]
-		}
-		if len(remainingArgs) > 1 {
-			ap.nonce = remainingArgs[1]
+			return nil, c.Err("too many arguments")
 		}
 	}
 	return ap, nil
